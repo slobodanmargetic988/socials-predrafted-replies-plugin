@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Reply Drafts",
+  "version": "0.1.0",
+  "description": "Paste pre-written replies into X and Facebook reply boxes, one click per project. Local only.",
+  "permissions": ["storage", "sidePanel", "alarms"],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open Reply Drafts",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/*", "https://twitter.com/*", "https://*.facebook.com/*"],
+      "js": ["store.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

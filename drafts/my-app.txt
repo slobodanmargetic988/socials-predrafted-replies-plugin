@@ -1,0 +1,9 @@
+# My App
+Building My App, a habit tracker that works fully offline. No account, no sync, just your streaks.
+My App! A small habit tracker I wanted for myself. Everything stays on your phone.
+Working on a habit tracker that never asks you to sign up. It's called My App.
+Mostly My App lately. Trying to make checking off a habit take one tap, not three.
+A habit tracker with no cloud at all. That's My App. What are you building?
+Right now it's My App. The goal is the calmest habit tracker you've ever used.
+I'm building My App because every habit app I tried wanted my email first.
+My App: offline habits, simple streaks, zero accounts. Still early but already useful to me.

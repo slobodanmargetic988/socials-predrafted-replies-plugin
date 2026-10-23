@@ -1,0 +1,7 @@
+# Side Project
+Building Side Project, an open-source CLI for organizing plain-text notes. A star would mean a lot if you like it: https://github.com/your-name/side-project
+Side Project! A tiny command-line tool that keeps markdown notes tidy. Stars help other people find it ⭐ https://github.com/your-name/side-project
+Working on an open-source notes CLI in my spare time. If it looks useful, I'd really appreciate a star: https://github.com/your-name/side-project
+Mostly Side Project. Your notes stay as plain files, the tool just keeps them organized. Repo's here, stars welcome: https://github.com/your-name/side-project
+I'm building a notes CLI that works with the files you already have. Give it a star if you dig it: https://github.com/your-name/side-project
+Right now it's Side Project, open source and small on purpose. Would love your feedback, and a star if it helps: https://github.com/your-name/side-project

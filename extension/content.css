@@ -1,0 +1,70 @@
+#reply-drafts-bar {
+  position: fixed;
+  z-index: 2147483647;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #15202b;
+  border: 1px solid #38444d;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#reply-drafts-bar .rd-hint {
+  color: #8b98a5;
+  font-size: 13px;
+  padding: 0 6px;
+}
+
+#reply-drafts-bar .rd-circle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  color: #fff;
+  transition: transform 0.1s, filter 0.1s;
+}
+
+#reply-drafts-bar .rd-circle:hover {
+  transform: scale(1.1);
+  filter: brightness(1.1);
+}
+
+#reply-drafts-bar .rd-circle svg {
+  pointer-events: none;
+}
+
+#reply-drafts-bar .rd-badge {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f1419;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+#reply-drafts-bar .rd-circle.rd-empty {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+#reply-drafts-bar .rd-circle.rd-flash {
+  background: #f4212e !important;
+}
