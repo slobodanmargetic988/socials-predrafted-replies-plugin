@@ -17,14 +17,19 @@
 const XStore = (() => {
   const KEY = "replyDrafts";
   const FILE_KEY = "replyDraftsFile";
+  // SubQ ranking settings, including the API key. Only the side panel and the background read it.
+  const SETTINGS_KEY = "replyDraftsSettings";
+  const DEFAULT_SETTINGS = { rankOnX: true, subqApiKey: "", subqModel: "subq-snap-1.1" };
   // Built by make-drafts.js. Re-read automatically; see syncBundledFile().
   const DRAFTS_FILE = "drafts.json";
   const MAX_TODAY = 5;
+  // How many unused drafts a project should have: 250 fits one SubQ ranking request (max 255).
+  // make-drafts.js and the replenish skill top up to the same number.
+  const TARGET_PER_PROJECT = 250;
   const SVG_NS = "http://www.w3.org/2000/svg";
 
   // Icons are 24x24 line drawings stored as [tag, attributes] pairs, so they can be
-  // built with createElementNS (no innerHTML on x.com). Matched by project name (lowercase);
-  // add an entry for each of your projects. Others get a generic icon.
+  // built with createElementNS (no innerHTML on x.com). Matched by project name.
   const DOT = { fill: "currentColor", stroke: "none" };
   const ICONS = {
     "my app": {
@@ -50,6 +55,11 @@ const XStore = (() => {
         ["circle", { cx: 16, cy: 11.5, r: 1, ...DOT }],
       ],
     },
+  };
+  // The "Best match" button in the reply bar.
+  ICONS["best match"] = {
+    color: "#e5a000",
+    shapes: [["path", { d: "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z", fill: "currentColor" }]],
   };
 
   const FALLBACK_COLORS = ["#9333ea", "#0f766e", "#b45309", "#be185d", "#1d4ed8", "#4d7c0f"];
@@ -122,6 +132,22 @@ const XStore = (() => {
   async function save(state) {
     const { fileDrafts, fileSyncedAt, ...main } = state;
     await chrome.storage.local.set({ [KEY]: main });
+  }
+
+  async function loadSettings() {
+    const result = await chrome.storage.local.get(SETTINGS_KEY);
+    return { ...DEFAULT_SETTINGS, ...(result[SETTINGS_KEY] || {}) };
+  }
+
+  async function saveSettings(changes) {
+    const settings = { ...(await loadSettings()), ...changes };
+    await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+    return settings;
+  }
+
+  // The projects switched on for today, in button order.
+  function todayProjects(state) {
+    return state.todayIds.map((id) => state.projects.find((p) => p.id === id)).filter(Boolean);
   }
 
   function hashText(text) {
@@ -313,8 +339,15 @@ const XStore = (() => {
   return {
     KEY,
     FILE_KEY,
+    SETTINGS_KEY,
     DRAFTS_FILE,
     MAX_TODAY,
+    TARGET_PER_PROJECT,
+    normalize,
+    loadSettings,
+    saveSettings,
+    todayProjects,
+    poolFor,
     iconFor,
     createIcon,
     load,

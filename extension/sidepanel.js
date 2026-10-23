@@ -100,13 +100,16 @@ function renderProjects(counts) {
     name.textContent = project.name;
     const bar = document.createElement("div");
     bar.className = "bar";
+    // Fill rate against the target, so you can see which projects need topping up.
+    const target = XStore.TARGET_PER_PROJECT;
     const fill = document.createElement("span");
-    fill.style.width = total ? `${(active / total) * 100}%` : "0%";
+    fill.style.width = `${Math.min(1, active / target) * 100}%`;
     fill.style.background = color;
     bar.appendChild(fill);
+    bar.title = `${Math.round(Math.min(1, active / target) * 100)}% full`;
     const stats = document.createElement("div");
     stats.className = "stats";
-    stats.textContent = total === 0 ? "No drafts yet" : `${active} left · ${archived} used`;
+    stats.textContent = total === 0 ? "No drafts yet" : `${active} of ${target} ready · ${archived} used`;
     meta.append(name, bar, stats);
 
     const toggle = document.createElement("label");
@@ -230,7 +233,7 @@ async function writeRules(interactive) {
       if (saved) {
         setRulesStatus("Not saved: Chrome needs your OK to write to the project folder again.", { error: true, button: "Allow" });
       } else {
-        setRulesStatus('Not saved yet: Chrome needs permission once. Click "Connect folder" and choose the project folder (the one with make-drafts.js in it).', { error: true, button: "Connect folder" });
+        setRulesStatus('Not saved yet: Chrome needs permission once. Click "Connect folder" and choose the "X plugin" folder (the one with make-drafts.js in it).', { error: true, button: "Connect folder" });
       }
       return;
     }
@@ -372,7 +375,7 @@ async function connectFolder() {
     await dir.getFileHandle("make-drafts.js");
     await (await dir.getDirectoryHandle("extension")).getFileHandle(RULES_FILE);
   } catch {
-    toast(`"${dir.name}" isn't it. Choose the project folder: the one with make-drafts.js, drafts and extension inside.`);
+    toast(`"${dir.name}" isn't it. Choose the "X plugin" folder: the one with make-drafts.js, drafts and extension inside.`);
     return null;
   }
   await handleStore("readwrite", (s) => s.put(dir, "projectFolder"));
@@ -448,6 +451,94 @@ function downloadFile(name, text, type) {
 $("exportArchive").addEventListener("click", () => {
   downloadFile(`reply-drafts-archive-${new Date().toISOString().slice(0, 10)}.json`, usedJson(), "application/json");
   toast(`Exported ${state.archive.length} used drafts.`);
+});
+
+// ---- SubQ ranking ----
+// The key is only ever written to storage and sent by the background; the panel shows
+// its last 4 characters so you can tell which one is saved.
+
+async function renderSubq() {
+  const settings = await XStore.loadSettings();
+  $("rankOnX").checked = settings.rankOnX;
+  $("subqModel").value = settings.subqModel;
+  $("subqRemove").hidden = !settings.subqApiKey;
+  $("subqTest").disabled = !settings.subqApiKey;
+  const key = settings.subqApiKey;
+  $("subqStatus").textContent = key
+    ? `SubQ key saved: ${key.slice(0, 3)}…${key.slice(-4)}, ${key.length} characters${settings.rankOnX ? "" : " · switched off"}`
+    : "Needs a SubQ API key";
+}
+
+// Cleans up common copy-paste extras: surrounding quotes, a leading "Bearer ",
+// "SUBQ_API_KEY=", spaces and line breaks.
+function cleanKey(raw) {
+  return raw
+    .trim()
+    .replace(/^SUBQ_API_KEY\s*=\s*/i, "")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .replace(/\s+/g, "");
+}
+
+// Problems you can spot without asking SubQ.
+function keyWarning(key) {
+  if (/…|\.\.\.|\*{2,}|•/.test(key)) return "This looks like a shortened key (it has … or ***). Copy the full key, usually shown only once when you create it.";
+  // SubQ also accepts Auth0 tokens, which are JWTs starting with "eyJ".
+  if (!key.startsWith("sk-") && !key.startsWith("eyJ")) return `SubQ keys start with "sk-", and this one starts with "${key.slice(0, 3)}". It may be the key's name or ID rather than the key itself.`;
+  if (key.length < 20) return `This key is only ${key.length} characters long, which is shorter than a real key.`;
+  return "";
+}
+
+$("subqForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const key = cleanKey($("subqKey").value);
+  if (!key) return;
+  const warning = keyWarning(key);
+  if (warning && !confirm(`${warning}\n\nSave it anyway?`)) return;
+  await XStore.saveSettings({ subqApiKey: key });
+  $("subqKey").value = "";
+  await renderSubq();
+  toast("SubQ key saved. Click Test to check it.");
+});
+
+$("rankOnX").addEventListener("change", async () => {
+  await XStore.saveSettings({ rankOnX: $("rankOnX").checked });
+  await renderSubq();
+});
+
+$("subqModel").addEventListener("change", async () => {
+  const model = $("subqModel").value.trim() || "subq-snap-1.1";
+  await XStore.saveSettings({ subqModel: model });
+  await renderSubq();
+  toast(`Model set to ${model}.`);
+});
+
+$("subqRemove").addEventListener("click", async () => {
+  if (!confirm("Remove the saved SubQ API key from this browser?")) return;
+  await XStore.saveSettings({ subqApiKey: "" });
+  await renderSubq();
+  toast("SubQ key removed.");
+});
+
+$("subqTest").addEventListener("click", async () => {
+  $("subqTest").disabled = true;
+  toast("Testing SubQ…");
+  try {
+    const result = await chrome.runtime.sendMessage({ type: "testSubq" });
+    if (result && result.ok) {
+      await renderSubq();
+      toast(result.switchedFrom ? `Your key can't use ${result.switchedFrom}, so I switched to ${result.model}. SubQ works.` : `SubQ works with ${result.model}.`);
+    } else if (result && result.models) {
+      toast(`SubQ test failed: ${result.error}`);
+      $("subqStatus").textContent = `Test failed. Models your key lists: ${result.models.join(", ")}`;
+    } else {
+      // Errors can be long; keep them on screen long enough to read.
+      toast(`SubQ test failed: ${result && result.error}`);
+      $("subqStatus").textContent = `Test failed: ${result && result.error}`;
+    }
+  } finally {
+    $("subqTest").disabled = false;
+  }
 });
 
 // ---- Import a one-off file ----
@@ -542,4 +633,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
   await syncAndRefresh();
   await loadRules().catch((err) => toast("Couldn't read the rules: " + err.message));
   await renderFolder();
+  await renderSubq();
 })();

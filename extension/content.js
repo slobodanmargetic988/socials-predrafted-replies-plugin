@@ -1,5 +1,7 @@
 // Runs on x.com and facebook.com. It only reacts to focus in a reply box and to clicks
 // on our own circles. It never clicks the site's buttons, never sends, and never navigates.
+// On X it also reads the text of the post being replied to, so the background can ask
+// SubQ which drafts fit it best.
 (() => {
   const BAR_ID = "reply-drafts-bar";
   const SHOW_DELAY_MS = 150;
@@ -11,6 +13,15 @@
   let dead = false;
   // The reply box the last draft went into; a click there again replaces instead of adding.
   let lastInsertBox = null;
+  // SubQ rankings by post text, so reopening a post doesn't ask again:
+  // { postText, status: "loading" | "ready" | "error" | "off",
+  //   best: Map(text -> position), byProject: Map(lowercase project name -> Map(text -> position)),
+  //   failed: [names that couldn't be ranked], error }
+  const rankings = new Map();
+  const MAX_RANKINGS = 30;
+  // Stands in for a project when the "Best match" button is clicked.
+  const BEST = { id: "best", name: "Best match" };
+  const BEST_COLOR = "#e5a000";
 
   // After the extension is reloaded or updated, scripts already running in open tabs lose
   // access to it ("Extension context invalidated"). When that happens, remove the bar and
@@ -93,26 +104,156 @@
       bar.appendChild(hint);
     }
 
+    const entry = currentRanking();
+    const rankingHere = entry && entry.status !== "off" ? entry : null;
+    const ranked = rankingHere && rankingHere.status === "ready" ? rankingHere : null;
+
+    if (rankingHere && projects.length > 0) {
+      const total = projects.reduce((sum, p) => sum + (counts[p.id] ? counts[p.id].active : 0), 0);
+      const badgeText = { loading: "…", error: "!", ready: String(total) }[rankingHere.status];
+      const post = rankingHere.postText.length > 140 ? `${rankingHere.postText.slice(0, 140)}…` : rankingHere.postText;
+      const partly = ranked && ranked.failed.length ? ` Not ranked (normal order): ${ranked.failed.join(", ")}. ${ranked.error || ""}` : "";
+      const title = {
+        loading: `Ranking drafts with SubQ for: "${post}" (clicking now uses the normal order)`,
+        error: `Couldn't rank: ${rankingHere.error} Clicking uses the normal order.`,
+        ready: `Best match for: "${post}". Click again for the next best.${partly}`,
+      }[rankingHere.status];
+      bar.appendChild(circleButton(BEST, BEST_COLOR, badgeText, title, total === 0, rankingHere.status));
+    }
+
     for (const project of projects) {
       const remaining = counts[project.id] ? counts[project.id].active : 0;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "rd-circle" + (remaining === 0 ? " rd-empty" : "");
-      btn.style.background = XStore.iconFor(project.name).color;
-      btn.appendChild(XStore.createIcon(project.name, 18));
-      const badge = document.createElement("span");
-      badge.className = "rd-badge";
-      badge.textContent = String(remaining);
-      btn.appendChild(badge);
-      btn.title = `${project.name} (${remaining} left)`;
-      btn.dataset.projectId = project.id;
-      btn.addEventListener("click", () => onCircleClick(project));
-      bar.appendChild(btn);
+      const projectRanked = ranked && ranked.byProject.has(project.name.toLowerCase()) && !ranked.failed.includes(project.name);
+      const title = `${project.name} (${remaining} left${projectRanked ? ", best match for this post first" : ""})`;
+      bar.appendChild(circleButton(project, XStore.iconFor(project.name).color, String(remaining), title, remaining === 0));
     }
 
     bar.style.display = "flex";
     positionBar(activeBox);
   });
+
+  function circleButton(target, color, badgeText, title, empty, status) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "rd-circle" + (empty ? " rd-empty" : "") + (target === BEST ? " rd-best" : "") + (status === "loading" ? " rd-loading" : "");
+    btn.style.background = color;
+    btn.appendChild(XStore.createIcon(target === BEST ? "best match" : target.name, 18));
+    const badge = document.createElement("span");
+    badge.className = "rd-badge";
+    badge.textContent = badgeText;
+    btn.appendChild(badge);
+    btn.title = title;
+    btn.dataset.projectId = target.id;
+    btn.addEventListener("click", () => onCircleClick(target));
+    return btn;
+  }
+
+  // ---- Ranking with SubQ (X only) ----
+
+  // The text of the post being replied to: the last post above the reply box, inside the
+  // reply pop-up when there is one. In the pop-up that's its one <article data-testid="tweet">,
+  // whose [data-testid="tweetText"] holds the post as a few spans (text, bold words, emoji);
+  // innerText joins them as shown. Read from the page only; nothing is clicked.
+  function postTextFor(box) {
+    if (!/(^|\.)(x|twitter)\.com$/.test(location.hostname)) return "";
+    const scope = box.closest('[role="dialog"]') || document;
+    const before = [...scope.querySelectorAll('[data-testid="tweetText"]')].filter(
+      (el) => el.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    const post = before[before.length - 1];
+    return post ? post.innerText.replace(/\s+/g, " ").trim() : "";
+  }
+
+  const toPositions = (texts) => new Map(texts.map((text, i) => [XStore.normalize(text), i]));
+
+  // Asks the background to rank today's drafts for a post, once per post. A failed or
+  // switched-off ranking is tried again the next time the post is opened.
+  function startRanking(postText) {
+    if (!postText) return;
+    const known = rankings.get(postText);
+    if (known && (known.status === "loading" || known.status === "ready")) return;
+    const entry = { postText, status: "loading" };
+    rankings.delete(postText);
+    rankings.set(postText, entry);
+    if (rankings.size > MAX_RANKINGS) rankings.delete(rankings.keys().next().value);
+    let request;
+    try {
+      request = chrome.runtime.sendMessage({ type: "rankDrafts", postText });
+    } catch {
+      alive();
+      return;
+    }
+    request
+      .then((result) => {
+        if (!result || result.off) {
+          entry.status = "off";
+        } else if (!result.order) {
+          entry.status = "error";
+          entry.error = result.error;
+        } else {
+          entry.status = "ready";
+          entry.best = toPositions(result.order);
+          entry.byProject = new Map(Object.entries(result.projects || {}).map(([name, texts]) => [name.toLowerCase(), toPositions(texts)]));
+          entry.failed = result.failed || [];
+          entry.error = result.error;
+        }
+        renderBar();
+      })
+      .catch(() => alive());
+  }
+
+  // The ranking for the post the focused reply box answers, if any.
+  function currentRanking() {
+    if (!activeBox || !activeBox.isConnected) return null;
+    return rankings.get(postTextFor(activeBox)) || null;
+  }
+
+  function currentRank() {
+    const entry = currentRanking();
+    return entry && entry.status === "ready" ? entry : null;
+  }
+
+  // Start ranking as soon as a reply pop-up shows its post, before the box is focused,
+  // so the ranking is ready by the time the post has been read. Only reads the page.
+  function watchForReplyPopups() {
+    if (!/(^|\.)(x|twitter)\.com$/.test(location.hostname)) return;
+    let scheduled = false;
+    const scan = () => {
+      scheduled = false;
+      if (!alive()) return;
+      for (const dialog of document.querySelectorAll('[role="dialog"]')) {
+        const editable = dialog.querySelector('[data-testid^="tweetTextarea"][contenteditable="true"], [data-testid^="tweetTextarea"] [contenteditable="true"]');
+        const box = editable && findReplyBox(editable);
+        if (box) startRanking(postTextFor(box));
+      }
+    };
+    new MutationObserver(() => {
+      if (scheduled) return;
+      scheduled = true;
+      setTimeout(scan, 100);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  // Unused drafts for a project button, or across today's projects for "Best match",
+  // in ranked order when there is a ranking (unranked drafts keep their normal order after).
+  // The star uses the overall order; a project button uses that project's own ranking.
+  function candidatesFor(state, target) {
+    const projects = target === BEST ? XStore.todayProjects(state) : [target];
+    const list = [];
+    for (const project of projects) {
+      for (const draft of XStore.poolFor(state, project)) list.push({ ...draft, projectId: project.id });
+    }
+    const entry = currentRank();
+    const rank = entry && (target === BEST ? entry.best : entry.byProject.get(target.name.toLowerCase()));
+    if (rank) {
+      const position = (d) => {
+        const r = rank.get(XStore.normalize(d.text));
+        return r === undefined ? Number.MAX_SAFE_INTEGER : r;
+      };
+      list.sort((a, b) => position(a) - position(b));
+    }
+    return list;
+  }
 
   // X's reply box is a Draft.js editor.
   function isDraftEditor(box) {
@@ -191,14 +332,15 @@
     return document.execCommand("insertText", false, text);
   }
 
-  const onCircleClick = safely(async (project) => {
+  // target is a project, or BEST for the "Best match" button.
+  const onCircleClick = safely(async (target) => {
     if (!alive() || busy || !activeBox || !activeBox.isConnected) return;
     busy = true;
     try {
       const state = await XStore.load();
-      const draft = XStore.nextActiveDraft(state, project.id);
+      const draft = candidatesFor(state, target)[0];
       if (!draft) {
-        flashTitle(project, "No drafts left for this project. Import more.");
+        flashTitle(target, "No drafts left. Replenish the drafts file.");
         return;
       }
       // Clicking again while the last draft is still in this box swaps it for the next one.
@@ -208,11 +350,11 @@
       const inserted = replacing ? await replaceText(box, draft.text) : insertText(box, draft.text);
       if (!inserted) {
         await navigator.clipboard.writeText(draft.text).catch(() => {});
-        flashTitle(project, "Could not insert. Copied instead; draft kept.");
+        flashTitle(target, "Could not insert. Copied instead; draft kept.");
         return;
       }
       lastInsertBox = box;
-      XStore.archiveDraft(state, project.id, draft);
+      XStore.archiveDraft(state, draft.projectId, draft);
       await XStore.save(state);
     } finally {
       busy = false;
@@ -248,7 +390,11 @@
       clearTimeout(hideTimer);
       activeBox = box;
       requestSync();
-      setTimeout(renderBar, SHOW_DELAY_MS);
+      // Give X a moment to render the post in the reply pop-up, then rank for it.
+      setTimeout(() => {
+        if (activeBox === box) startRanking(postTextFor(box));
+        renderBar();
+      }, SHOW_DELAY_MS);
     },
     true
   );
@@ -271,4 +417,6 @@
       renderBar();
     }
   });
+
+  watchForReplyPopups();
 })();

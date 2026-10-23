@@ -65,6 +65,19 @@
   opacity: 0.45;
 }
 
+#reply-drafts-bar .rd-circle.rd-best {
+  margin-right: 6px;
+  box-shadow: 0 0 0 2px rgba(229, 160, 0, 0.35);
+}
+
+#reply-drafts-bar .rd-circle.rd-loading svg {
+  animation: rd-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rd-pulse {
+  50% { opacity: 0.35; }
+}
+
 #reply-drafts-bar .rd-circle.rd-flash {
   background: #f4212e !important;
 }

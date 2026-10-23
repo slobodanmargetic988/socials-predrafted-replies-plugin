@@ -414,6 +414,26 @@
       <button class="btn secondary" id="connectFolder" type="button"></button>
     </div>
     <p class="hint" style="margin-top:0">Lets this panel save your rules and keep <code>drafts/used/</code> current, so the replenish skill knows what you've posted.</p>
+    <div class="setting">
+      <div>
+        <strong>Rank drafts for each post</strong>
+        <span id="subqStatus"></span>
+      </div>
+      <label class="switch" title="Rank drafts with SubQ on X">
+        <input type="checkbox" id="rankOnX" aria-label="Rank drafts for each post with SubQ">
+        <span></span>
+      </label>
+    </div>
+    <p class="hint" style="margin-top:0">On X, when you reply to a post, its text and today's unused drafts go to SubQ's decision model, which scores how well each draft fits the post. A star button picks the best match, then the next best.</p>
+    <form class="add" id="subqForm">
+      <input type="password" id="subqKey" placeholder="Paste your SubQ API key" autocomplete="off">
+      <button class="btn secondary" type="submit">Save</button>
+    </form>
+    <div class="add" style="margin-top:8px">
+      <input type="text" id="subqModel" placeholder="Model" autocomplete="off" aria-label="SubQ model">
+      <button class="btn secondary" type="button" id="subqTest">Test</button>
+      <button class="btn secondary" type="button" id="subqRemove">Remove key</button>
+    </div>
     <div class="setting" id="importedRow" hidden>
       <div>
         <strong>Imported drafts</strong>
@@ -428,7 +448,7 @@
         <input type="file" id="importFile" accept="application/json,.json" hidden>
         <strong>Choose a JSON file</strong>
       </label>
-      <textarea class="paste" id="importText" placeholder='...or paste JSON: [{ "project": "My App", "text": "..." }]'></textarea>
+      <textarea class="paste" id="importText" placeholder='...or paste JSON: [{ "project": "Feed", "text": "..." }]'></textarea>
       <button class="btn secondary" id="importBtn" type="button">Import pasted JSON</button>
     </details>
     <details>

@@ -60,6 +60,10 @@
     "text": "My App: offline habits, simple streaks, zero accounts. Still early but already useful to me."
   },
   {
+    "project": "My App",
+    "text": "Right now it's My App, a habit tracker that works fully offline. There's no account and no sync, so your habits never leave your phone. Checking one off is a single tap, and streaks are the only stats it keeps, because I wanted something calm that I'd actually open every day instead of another dashboard to manage. What are you building?"
+  },
+  {
     "project": "Side Project",
     "text": "Building Side Project, an open-source CLI for organizing plain-text notes. A star would mean a lot if you like it: https://github.com/your-name/side-project"
   },
@@ -82,5 +86,9 @@
   {
     "project": "Side Project",
     "text": "Right now it's Side Project, open source and small on purpose. Would love your feedback, and a star if it helps: https://github.com/your-name/side-project"
+  },
+  {
+    "project": "Side Project",
+    "text": "Mostly Side Project, an open-source command-line tool that keeps plain-text markdown notes organized. It works with the files you already have and stores nothing anywhere else, so you can stop using it any time and your notes are still just notes. If that sounds useful, a star would really help: https://github.com/your-name/side-project"
   }
 ]

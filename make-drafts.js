@@ -9,10 +9,10 @@
 //
 // Refuses to write the JSON if any draft is duplicated, over 8,000 characters, or too similar
 // to another draft in the same project, and lists what to fix. Warns (without refusing)
-// when more than half of a project's drafts are over 280 characters.
+// when more than a third of a project's drafts have emojis.
 //
 //   node make-drafts.js                  build the JSON
-//   node make-drafts.js --status         show unused drafts per project, write nothing
+//   node make-drafts.js --status         show unused drafts per project (refill below 200, up to 250), write nothing
 //   node make-drafts.js --pull-archive   first copy the newest archive export from ~/Downloads
 //                                        into drafts/used/ (combine with either of the above)
 const fs = require("fs");
@@ -21,9 +21,19 @@ const path = require("path");
 
 // Hard limit: Facebook comments stop at 8,000 characters (X Premium allows 25,000).
 const MAX_LENGTH = 8000;
-// The rules say most drafts stay under this; more than half over it gets a warning.
+// Drafts over this count as long posts (X Premium). --status shows each project's share,
+// so the skill can steer toward the mix in the rules.
 const SHORT_LENGTH = 280;
-const TARGET = 50;
+// Hard limit from the rules: at most this many emojis in one draft.
+const MAX_EMOJIS = 2;
+// The rules allow emojis in at most this share of a project's drafts; more gets a warning.
+const EMOJI_SHARE = 1 / 3;
+const emojiCount = (text) => (text.match(/\p{Extended_Pictographic}/gu) || []).length;
+const pct = (n, total) => `${total ? Math.round((n / total) * 100) : 0}%`;
+// Matches the extension's TARGET_PER_PROJECT: 250 fits one SubQ ranking request (max 255).
+const TARGET = 250;
+// A project is only refilled once it drops below this, then back up to TARGET.
+const REFILL_BELOW = 200;
 // Share of meaningful words two drafts can have in common before they count as near-duplicates.
 const SIMILARITY_LIMIT = 0.6;
 const EXPORT_PREFIX = "reply-drafts-archive-";
@@ -117,7 +127,7 @@ const usedKeys = new Set(used.map((u) => normalize(u.text)));
 const projects = readProjects();
 
 if (args.has("--status")) {
-  console.log(`Target: ${TARGET} unused drafts per project. Already posted (from drafts/used): ${used.length}`);
+  console.log(`Refill below ${REFILL_BELOW} unused drafts per project, up to ${TARGET}. Already posted (from drafts/used): ${used.length}`);
   const usedFiles = fs.existsSync(usedDir) ? fs.readdirSync(usedDir).filter((f) => f.endsWith(".json")) : [];
   if (usedFiles.length === 0) console.log("No used-drafts files yet in drafts/used/.");
   for (const f of usedFiles) {
@@ -132,8 +142,13 @@ if (args.has("--status")) {
     }
     const posted = p.lines.filter((l) => usedKeys.has(normalize(l))).length;
     const unused = p.lines.length - posted;
-    const needed = Math.max(0, TARGET - unused);
-    console.log(`${p.name.padEnd(22)} ${String(unused).padStart(3)} unused  ${String(posted).padStart(3)} posted  ${needed ? `needs ${needed}` : "full"}   drafts/${p.file}`);
+    // "needs N" only below the refill line; between it and the target a project is "ok".
+    const needed = unused < REFILL_BELOW ? TARGET - unused : 0;
+    const label = needed ? `needs ${needed}` : unused >= TARGET ? "full" : "ok";
+    const open = p.lines.filter((l) => !usedKeys.has(normalize(l)));
+    const long = pct(open.filter((l) => l.length > SHORT_LENGTH).length, open.length);
+    const emoji = pct(open.filter((l) => emojiCount(l) > 0).length, open.length);
+    console.log(`${p.name.padEnd(22)} ${String(unused).padStart(3)} unused  ${String(posted).padStart(3)} posted  ${label.padEnd(10)} long ${long.padStart(4)}  emoji ${emoji.padStart(4)}   drafts/${p.file}`);
   }
   process.exit(0);
 }
@@ -155,7 +170,7 @@ for (const p of projects) {
     .filter((u) => u.project.toLowerCase() === p.name.toLowerCase())
     .map((u) => ({ text: u.text, words: words(u.text, ignore) }));
   let unused = 0;
-  let long = 0;
+  let withEmoji = 0;
 
   for (const text of p.lines) {
     const key = normalize(text);
@@ -170,7 +185,9 @@ for (const p of projects) {
     if (text.length > MAX_LENGTH) {
       problems.push(`${p.name}: over ${MAX_LENGTH} characters: ${clip(text)}`);
     }
-    if (text.length > SHORT_LENGTH) long += 1;
+    const emojis = emojiCount(text);
+    if (emojis > MAX_EMOJIS) problems.push(`${p.name}: ${emojis} emojis (max ${MAX_EMOJIS}): ${clip(text)}`);
+    if (emojis > 0) withEmoji += 1;
     const own = words(text, ignore);
     for (const old of usedWords) {
       if (similarity(own, old.words) > SIMILARITY_LIMIT) {
@@ -187,9 +204,9 @@ for (const p of projects) {
     drafts.push({ project: p.name, text });
     unused += 1;
   }
-  summary.push(`  ${p.name}: ${unused} unused` + (unused < TARGET ? ` (needs ${TARGET - unused})` : ""));
-  if (long > unused / 2) {
-    warnings.push(`${p.name}: ${long} of ${unused} drafts are over ${SHORT_LENGTH} characters; the rules say most should be shorter.`);
+  summary.push(`  ${p.name}: ${unused} unused` + (unused < REFILL_BELOW ? ` (needs ${TARGET - unused})` : ""));
+  if (withEmoji > unused * EMOJI_SHARE) {
+    warnings.push(`${p.name}: ${withEmoji} of ${unused} drafts have emojis; the rules allow at most a third.`);
   }
 }
 

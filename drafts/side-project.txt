@@ -5,3 +5,4 @@ Working on an open-source notes CLI in my spare time. If it looks useful, I'd re
 Mostly Side Project. Your notes stay as plain files, the tool just keeps them organized. Repo's here, stars welcome: https://github.com/your-name/side-project
 I'm building a notes CLI that works with the files you already have. Give it a star if you dig it: https://github.com/your-name/side-project
 Right now it's Side Project, open source and small on purpose. Would love your feedback, and a star if it helps: https://github.com/your-name/side-project
+Mostly Side Project, an open-source command-line tool that keeps plain-text markdown notes organized. It works with the files you already have and stores nothing anywhere else, so you can stop using it any time and your notes are still just notes. If that sounds useful, a star would really help: https://github.com/your-name/side-project

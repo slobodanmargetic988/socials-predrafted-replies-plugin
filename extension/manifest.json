@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "description": "Paste pre-written replies into X and Facebook reply boxes, one click per project. Local only.",
   "permissions": ["storage", "sidePanel", "alarms"],
+  "host_permissions": ["https://api.subq.ai/*"],
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",

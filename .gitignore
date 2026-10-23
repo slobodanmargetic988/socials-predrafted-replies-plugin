@@ -1,3 +1,5 @@
 .DS_Store
-# Drafts you've posted; written by the side panel, personal to you.
+# Personal to you: drafts you've posted (written by the side panel), and your own
+# replies used as a style reference (written by make-voice.js).
 drafts/used/
+drafts/voice.md

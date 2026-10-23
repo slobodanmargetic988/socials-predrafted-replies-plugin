@@ -7,3 +7,4 @@ A habit tracker with no cloud at all. That's My App. What are you building?
 Right now it's My App. The goal is the calmest habit tracker you've ever used.
 I'm building My App because every habit app I tried wanted my email first.
 My App: offline habits, simple streaks, zero accounts. Still early but already useful to me.
+Right now it's My App, a habit tracker that works fully offline. There's no account and no sync, so your habits never leave your phone. Checking one off is a single tap, and streaks are the only stats it keeps, because I wanted something calm that I'd actually open every day instead of another dashboard to manage. What are you building?
