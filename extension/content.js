@@ -9,6 +9,8 @@
   let busy = false;
   let bar = null;
   let dead = false;
+  // The reply box the last draft went into; a click there again replaces instead of adding.
+  let lastInsertBox = null;
 
   // After the extension is reloaded or updated, scripts already running in open tabs lose
   // access to it ("Extension context invalidated"). When that happens, remove the bar and
@@ -152,6 +154,43 @@
     return document.execCommand("insertText", false, text);
   }
 
+  // Selects everything typed in the box, from the first text node to the last.
+  // Returns false when there's no text to select.
+  function selectAllText(box) {
+    const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+    let first = null;
+    let last = null;
+    while (walker.nextNode()) {
+      first = first || walker.currentNode;
+      last = walker.currentNode;
+    }
+    if (!first) return false;
+    const range = document.createRange();
+    range.setStart(first, 0);
+    range.setEnd(last, last.length);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return true;
+  }
+
+  // Editors (Draft.js, Lexical) track the selection through "selectionchange", which the
+  // browser only sends on a later task. Send it now so they see the select-all before the
+  // paste, then give them a moment to apply it.
+  function announceSelection() {
+    document.dispatchEvent(new Event("selectionchange"));
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  // Replaces everything in the box with text, the same way selecting all and pasting would.
+  async function replaceText(box, text) {
+    box.focus();
+    if (!selectAllText(box)) return insertText(box, text);
+    await announceSelection();
+    if (isDraftEditor(box) && pasteInto(box, text)) return true;
+    return document.execCommand("insertText", false, text);
+  }
+
   const onCircleClick = safely(async (project) => {
     if (!alive() || busy || !activeBox || !activeBox.isConnected) return;
     busy = true;
@@ -162,12 +201,17 @@
         flashTitle(project, "No drafts left for this project. Import more.");
         return;
       }
-      const inserted = insertText(activeBox, draft.text);
+      // Clicking again while the last draft is still in this box swaps it for the next one.
+      // Both count as used.
+      const box = activeBox;
+      const replacing = lastInsertBox === box && box.innerText.trim() !== "";
+      const inserted = replacing ? await replaceText(box, draft.text) : insertText(box, draft.text);
       if (!inserted) {
         await navigator.clipboard.writeText(draft.text).catch(() => {});
         flashTitle(project, "Could not insert. Copied instead; draft kept.");
         return;
       }
+      lastInsertBox = box;
       XStore.archiveDraft(state, project.id, draft);
       await XStore.save(state);
     } finally {

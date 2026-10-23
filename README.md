@@ -19,6 +19,7 @@ Every draft is used once. Used drafts are recorded and never offered again, beca
 1. In the side panel, switch on up to 5 projects. They show under **Today**.
 2. On X or Facebook, click into a reply box. The buttons appear above or below it, each with the number of drafts left.
 3. Click a button. The draft is pasted and recorded as used. Review it and press Send.
+   Don't like it? Click again: the box is cleared and the next draft goes in. Both count as used.
 4. A button greys out when its project has no drafts left.
 
 After changing the extension's code, click the reload arrow on its card in `chrome://extensions`, then reload your X and Facebook tabs.
