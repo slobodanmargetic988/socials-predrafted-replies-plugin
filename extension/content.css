@@ -65,6 +65,17 @@
   opacity: 0.45;
 }
 
+/* Relationship badge after a post author's name (network.js). */
+.rd-rel {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+}
+
 #reply-drafts-bar .rd-circle.rd-best {
   margin-right: 6px;
   box-shadow: 0 0 0 2px rgba(229, 160, 0, 0.35);

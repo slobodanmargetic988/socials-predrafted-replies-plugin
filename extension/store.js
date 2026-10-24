@@ -19,7 +19,11 @@ const XStore = (() => {
   const FILE_KEY = "replyDraftsFile";
   // SubQ ranking settings, including the API key. Only the side panel and the background read it.
   const SETTINGS_KEY = "replyDraftsSettings";
-  const DEFAULT_SETTINGS = { rankOnX: true, subqApiKey: "", subqModel: "subq-snap-1.1" };
+  const DEFAULT_SETTINGS = { rankOnX: true, subqApiKey: "", subqModel: "subq-snap-1.1", networkBadges: true };
+  // Your X followers and following, read from the screen while you scroll those lists:
+  // { me: "lowercase handle", followers: { handle: name }, following: { handle: name },
+  //   totals: { followers, following } from your profile page, updatedAt }
+  const NETWORK_KEY = "replyDraftsNetwork";
   // Built by make-drafts.js. Re-read automatically; see syncBundledFile().
   const DRAFTS_FILE = "drafts.json";
   const MAX_TODAY = 5;
@@ -143,6 +147,45 @@ const XStore = (() => {
     const settings = { ...(await loadSettings()), ...changes };
     await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
     return settings;
+  }
+
+  function emptyNetwork() {
+    return { me: "", followers: {}, following: {}, totals: {}, updatedAt: null };
+  }
+
+  async function loadNetwork() {
+    const result = await chrome.storage.local.get(NETWORK_KEY);
+    return { ...emptyNetwork(), ...(result[NETWORK_KEY] || {}) };
+  }
+
+  // Applies what a page showed. changes: { me, totals, followers: { handle: name },
+  // following: { handle: name }, notFollowing: [handle] }. Reads the stored lists right
+  // before writing, so two tabs don't overwrite each other's additions.
+  async function mergeNetwork(changes) {
+    const network = await loadNetwork();
+    if (changes.me) network.me = changes.me;
+    if (changes.totals) network.totals = { ...network.totals, ...changes.totals };
+    Object.assign(network.followers, changes.followers || {});
+    Object.assign(network.following, changes.following || {});
+    for (const handle of changes.notFollowing || []) delete network.following[handle];
+    network.updatedAt = Date.now();
+    await chrome.storage.local.set({ [NETWORK_KEY]: network });
+    return network;
+  }
+
+  async function clearNetwork() {
+    await chrome.storage.local.set({ [NETWORK_KEY]: emptyNetwork() });
+  }
+
+  // "mutual", "following" (you follow them only), "follower" (they follow you only) or "new".
+  function relation(network, handle) {
+    const h = handle.toLowerCase();
+    const followsMe = h in network.followers;
+    const iFollow = h in network.following;
+    if (followsMe && iFollow) return "mutual";
+    if (iFollow) return "following";
+    if (followsMe) return "follower";
+    return "new";
   }
 
   // The projects switched on for today, in button order.
@@ -340,6 +383,11 @@ const XStore = (() => {
     KEY,
     FILE_KEY,
     SETTINGS_KEY,
+    NETWORK_KEY,
+    loadNetwork,
+    mergeNetwork,
+    clearNetwork,
+    relation,
     DRAFTS_FILE,
     MAX_TODAY,
     TARGET_PER_PROJECT,

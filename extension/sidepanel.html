@@ -281,6 +281,13 @@
     .rules-actions .btn, .setting .btn { white-space: nowrap; }
     .rules-status.error { color: var(--danger); }
 
+    .net-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .net-stats div { padding: 10px; border-radius: 10px; background: var(--track); }
+    .net-stats strong { display: block; font-size: 18px; }
+    .net-stats span { color: var(--muted); font-size: 12px; }
+    .net-legend { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+    .net-legend span { display: inline-block; width: 22px; }
+
     .setting {
       display: flex;
       align-items: center;
@@ -381,6 +388,31 @@
 
   <section class="card">
     <div class="card-head">
+      <h2>Network</h2>
+      <label class="switch" title="Show relationship badges on X posts">
+        <input type="checkbox" id="networkBadges" aria-label="Show relationship badges on X posts">
+        <span></span>
+      </label>
+    </div>
+    <div class="net-stats">
+      <div><strong id="netFollowers">0</strong><span id="netFollowersOf">followers seen</span></div>
+      <div><strong id="netFollowing">0</strong><span id="netFollowingOf">following seen</span></div>
+    </div>
+    <ul class="net-legend">
+      <li><span>🤝</span>Mutual: you follow each other</li>
+      <li><span>🔭</span>You follow them, they don't follow you</li>
+      <li><span>👋</span>They follow you, you don't follow back</li>
+      <li><span>🎯</span>Neither: someone new to connect with</li>
+    </ul>
+    <p class="hint" id="netHint"></p>
+    <div class="rules-actions">
+      <span class="hint" id="netUpdated"></span>
+      <button class="btn secondary" id="netClear" type="button">Clear lists</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
       <h2>Drafting rules</h2>
     </div>
     <p class="hint" style="margin-top:0">Every draft follows these, whether you, Claude Code or Codex writes it.</p>
@@ -448,7 +480,7 @@
         <input type="file" id="importFile" accept="application/json,.json" hidden>
         <strong>Choose a JSON file</strong>
       </label>
-      <textarea class="paste" id="importText" placeholder='...or paste JSON: [{ "project": "Feed", "text": "..." }]'></textarea>
+      <textarea class="paste" id="importText" placeholder='...or paste JSON: [{ "project": "My App", "text": "..." }]'></textarea>
       <button class="btn secondary" id="importBtn" type="button">Import pasted JSON</button>
     </details>
     <details>

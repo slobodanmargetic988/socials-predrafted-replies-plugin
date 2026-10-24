@@ -541,6 +541,38 @@ $("subqTest").addEventListener("click", async () => {
   }
 });
 
+// ---- Network (followers and following, read from X while you scroll) ----
+
+async function renderNetwork() {
+  const network = await XStore.loadNetwork();
+  const settings = await XStore.loadSettings();
+  const t = network.totals || {};
+  const seen = (list) => Object.keys(network[list]).length;
+  const of = (list, label) => (t[list] ? `of ${t[list].toLocaleString()} ${label} (${Math.min(100, Math.round((seen(list) / t[list]) * 100))}%)` : `${label} seen`);
+  $("netFollowers").textContent = seen("followers").toLocaleString();
+  $("netFollowersOf").textContent = of("followers", "followers");
+  $("netFollowing").textContent = seen("following").toLocaleString();
+  $("netFollowingOf").textContent = of("following", "following");
+  $("networkBadges").checked = settings.networkBadges !== false;
+  const me = network.me ? `@${network.me}` : "your account";
+  $("netHint").textContent = network.me
+    ? `To fill the lists, scroll ${me}'s Followers and Following pages on X, and open your profile once so the totals are known. The extension only reads what's on screen.`
+    : "Open X once so the extension can find your handle, then scroll your Followers and Following pages to fill the lists.";
+  $("netUpdated").textContent = network.updatedAt ? `Updated ${formatDate(network.updatedAt)}` : "";
+}
+
+$("networkBadges").addEventListener("change", async () => {
+  await XStore.saveSettings({ networkBadges: $("networkBadges").checked });
+  toast($("networkBadges").checked ? "Badges on." : "Badges off.");
+});
+
+$("netClear").addEventListener("click", async () => {
+  if (!confirm("Clear your saved followers and following lists? They fill again as you scroll those pages on X.")) return;
+  await XStore.clearNetwork();
+  await renderNetwork();
+  toast("Lists cleared.");
+});
+
 // ---- Import a one-off file ----
 
 async function importItems(items) {
@@ -627,6 +659,7 @@ $("syncNow").addEventListener("click", async () => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && (changes[XStore.KEY] || changes[XStore.FILE_KEY])) refresh();
+  if (area === "local" && changes[XStore.NETWORK_KEY]) renderNetwork();
 });
 
 (async () => {
@@ -634,4 +667,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
   await loadRules().catch((err) => toast("Couldn't read the rules: " + err.message));
   await renderFolder();
   await renderSubq();
+  await renderNetwork();
 })();

@@ -6,7 +6,9 @@ Every draft is used once. Used drafts are recorded and never offered again, beca
 
 Optionally, on X, the extension can ask [SubQ](https://subq.ai)'s decision model which of your drafts fits the post you're replying to, and offer the best match first.
 
-**What it doesn't do:** it never clicks the site's buttons, never sends, never navigates, and never moves the mouse. It only reads the post you're replying to and inserts text into the reply box you're already in, when you click one of its buttons. Your data stays in your Chrome profile and this folder; the only thing that ever leaves is the SubQ request described below, and only if you add a SubQ key.
+It also keeps a list of your X followers and the people you follow, built only from what you scroll past, and marks every post author with how you're connected. That shows you who is new to your network without paying for X's API.
+
+**What it doesn't do:** it never clicks the site's buttons, never sends, never navigates, and never moves the mouse. It only reads the post you're replying to and inserts text into the reply box you're already in, when you click one of its buttons. Your data, including the follower lists, stays in your Chrome profile and this folder; the only thing that ever leaves is the SubQ request described below, and only if you add a SubQ key.
 
 ## Install
 
@@ -77,6 +79,40 @@ Optional. When you open a reply to a post on X, the extension reads that post's 
 
 Set it up under **Settings → Rank drafts for each post**: paste your SubQ API key (from [console.subq.ai](https://console.subq.ai)), click **Save**, then **Test**. Test also switches to a model your key is allowed to use. The key is stored only in your Chrome profile and used only by the extension's background script; the panel shows its first 3 and last 4 characters. Facebook isn't ranked.
 
+## Follower tracker: who is already in your network
+
+X has no search filter for people outside your network, and its official API is expensive. The extension builds the lists from what's on your screen instead.
+
+### Set it up
+
+1. Open X in the same Chrome profile. The extension finds your handle from X's **Profile** link in the left sidebar; you don't enter it anywhere.
+2. Open your own profile once, at `x.com/<your-handle>`. This records your follower and following counts, so the side panel can show how complete the lists are.
+3. Scroll your **Followers** page, `x.com/<your-handle>/followers` (the **Verified followers** tab counts too), all the way down. Every person shown is added to your followers.
+4. Scroll your **Following** page, `x.com/<your-handle>/following`, all the way down. Every person shown is added to the people you follow.
+5. Open the extension's side panel. The **Network** card shows the counts, for example "842 of 1,200 followers (70%)", and updates live while you scroll.
+
+The extension never scrolls, clicks, follows or opens anything for you, so the lists fill exactly as fast as you scroll. X loads long lists bit by bit; with thousands of followers the first full pass takes a while. After that, X lists your newest followers first, so scrolling until you reach people you've already seen is enough.
+
+### Read the badges
+
+Next to every post author on X (timeline, search results, replies, quoted posts) a badge shows the connection. Hover it for details and how complete the lists are.
+
+| Badge | Meaning |
+| --- | --- |
+| 🤝 | Mutual: you follow each other |
+| 🔭 | You follow them, they don't follow you |
+| 👋 | They follow you, you don't follow back |
+| 🎯 | Neither: someone new to connect with |
+
+🎯 means "not in either list so far". Until both lists are complete, some 🎯 people may be followers you haven't scrolled past yet, so scroll both lists before going through search results for new people.
+
+### How the lists stay correct
+
+- Any people list on X that shows a **Follows you** label or a **Follow/Following** button (people search, likes, reposts) updates the lists, including people you have since unfollowed.
+- Only the main column is read. The "Who to follow" sidebar is ignored, so suggestions never end up in your lists.
+- People who unfollow you aren't removed automatically, because the extension only sees who is there, not who left. **Clear lists** in the Network card and a fresh scroll of both pages starts over.
+- Switch the badges off with the toggle in the Network card. The lists stay in your Chrome profile and are never sent anywhere, including SubQ.
+
 ## How it fits together
 
 | Path | What it is |
@@ -84,6 +120,7 @@ Set it up under **Settings → Rank drafts for each post**: paste your SubQ API 
 | `extension/` | The Chrome extension (Manifest V3, no build step) |
 | `extension/content.js` | Finds reply boxes on X and Facebook, shows the buttons, reads the post being replied to |
 | `extension/background.js` | Drafts file sync and the SubQ ranking requests |
+| `extension/network.js` | Follower tracker: reads followers and following from the screen, adds the badges |
 | `extension/store.js` | Storage, drafts pool, settings, icons |
 | `extension/sidepanel.*` | The side panel |
 | `extension/DRAFTING-RULES.md` | Your DOs and DON'Ts |
@@ -94,7 +131,7 @@ Set it up under **Settings → Rank drafts for each post**: paste your SubQ API 
 | `make-icons.js` | Draws the toolbar icon PNGs |
 | `.agents/skills/`, `.claude/skills/` | The `replenish-drafts` skill |
 
-If the buttons stop appearing after a site update, the reply box detection is `findReplyBox` in `extension/content.js`; finding the post's text is `postTextFor`.
+If the buttons stop appearing after a site update, the reply box detection is `findReplyBox` in `extension/content.js`; finding the post's text is `postTextFor`. If the follower lists stop filling, the people-card reading is `scanPeople` in `extension/network.js`.
 
 ## License
 
