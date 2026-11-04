@@ -1,5 +1,7 @@
 # Socials Pre-drafted Replies
 
+[![Support me](https://img.shields.io/badge/Support%20me-GitHub%20Sponsors-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/slobodanmargetic988)
+
 A local-only Chrome extension for answering "What are you working on?" posts on X and Facebook. You keep a pool of pre-written replies per project. When you click into a reply box, a small bar of buttons appears, one per project you picked for today. Click one and the next unused draft for that project is pasted into the box. You review it and press Send yourself.
 
 Every draft is used once. Used drafts are recorded and never offered again, because X penalizes duplicate posting.
